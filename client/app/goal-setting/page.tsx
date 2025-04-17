@@ -6,17 +6,51 @@ import { useRouter } from "next/navigation";
 export default function GoalSettingPage() {
   const [goal, setGoal] = useState("Grow followers");
   const [business, setBusiness] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
-    // Simulate sending to backend here
-    console.log("Goal:", goal);
-    console.log("Business:", business);
+    try {
+      const res = await fetch("https://julian-nup.app.n8n.cloud/webhook/generate-strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal, business }),
+      });
 
-    // Redirect to dashboard
-    router.push("/dashboard");
+      const rawText = await res.text();
+      console.log("📦 RAW response from n8n:", rawText);
+
+      let strategy = "No strategy received";
+
+      try {
+        const data = JSON.parse(rawText);
+        console.log("🧪 Parsed JSON:", data);
+
+        // Pick the correct format depending on your n8n response
+        strategy = 
+          data.strategy ||
+          data.message ||
+          data?.choices?.[0]?.message?.content ||
+          "No strategy received";
+
+      } catch (err) {
+        console.warn("⚠️ Not JSON — treating as plain text.");
+        strategy = rawText;
+      }
+
+      console.log("🧠 Final strategy:", strategy);
+      localStorage.setItem("strategy", strategy);
+      router.push("/dashboard");
+
+    } catch (err) {
+      console.error("❌ Error:", err);
+      alert("Something went wrong. Check the console.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,8 +83,9 @@ export default function GoalSettingPage() {
         <button
           type="submit"
           className="bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+          disabled={loading}
         >
-          Generate Strategy
+          {loading ? "Generating..." : "Generate Strategy"}
         </button>
       </form>
     </div>
